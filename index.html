@@ -1,0 +1,851 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>壁のカードバトル</title>
+  <style>
+    :root { color-scheme: light; --ink:#20283a; --muted:#667085; --blue:#3157a4; --red:#a33b42; --gold:#d8a331; --paper:#fff; --bg:#eef1f5; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 system-ui,"Yu Gothic UI",sans-serif; }
+    header { padding:18px 24px; color:white; background:#202b43; }
+    header h1 { margin:0; font-size:24px; }
+    header p { margin:4px 0 0; color:#d7deec; }
+    main { width:min(1180px,100%); margin:0 auto; padding:20px; }
+    .panel { background:var(--paper); border-radius:14px; padding:18px; box-shadow:0 3px 14px #15213a12; }
+    .intro { max-width:760px; margin:28px auto; }
+    .intro li { margin:6px 0; }
+    button { border:0; border-radius:9px; padding:10px 15px; background:var(--blue); color:white; font:inherit; font-weight:650; cursor:pointer; }
+    button:hover { filter:brightness(1.08); }
+    button:disabled { background:#aeb5c2; cursor:not-allowed; filter:none; }
+    button.secondary { background:#596579; }
+    button.danger { background:var(--red); }
+    .topline { display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; margin-bottom:14px; }
+    .pill { display:inline-block; padding:5px 10px; border-radius:99px; background:#e9edf5; font-weight:700; }
+    #notice { min-height:28px; margin:10px 0 14px; color:#243c6e; font-weight:650; }
+    .players { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .player { border:2px solid transparent; }
+    .player.active { border-color:var(--gold); }
+    .player h2 { margin:0; font-size:20px; }
+    .stats { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0 14px; }
+    .section-title { margin:14px 0 7px; font-size:15px; font-weight:750; }
+    .walls { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; }
+    .wall { min-height:70px; display:grid; place-items:center; text-align:center; padding:6px; border-radius:9px; background:#f2e9dc; border:1px solid #e3d3bd; }
+    .wall b { display:block; font-size:18px; }
+    .wall.broken { color:#8c929d; background:#eaebee; border-style:dashed; }
+    .fieldbox { min-height:45px; padding:9px; border-radius:8px; background:#edf2fa; }
+    .characters { display:flex; flex-wrap:wrap; gap:8px; }
+    .character { width:min(190px,100%); padding:10px; border:1px solid #d9deea; border-radius:10px; background:#fbfcfe; }
+    .character.tired { opacity:.62; background:#e9ebef; }
+    .character strong { display:block; }
+    .character small,.card small { display:block; color:var(--muted); }
+    .character .actions { margin-top:8px; }
+    .character button { padding:7px 9px; font-size:14px; }
+    .hand { display:flex; flex-wrap:wrap; gap:10px; }
+    .card { flex:1 1 190px; max-width:260px; padding:12px; border:1px solid #d9deea; border-radius:10px; background:white; }
+    .card h3 { margin:0 0 6px; font-size:17px; }
+    .card .card-hint { margin-top:6px; color:#3157a4; font-weight:650; }
+    .card p { min-height:44px; margin:8px 0; font-size:14px; }
+    .controls { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+    .log { max-height:170px; overflow:auto; padding-left:20px; color:#4d586b; }
+    .rules { margin-top:16px; color:var(--muted); font-size:13px; }
+    /* Larger contrast and clearer grouping for the play area. */
+    header { background:linear-gradient(120deg,#1d2b49,#294c78); }
+    main { padding:clamp(12px,2vw,24px); }
+    .panel { border:1px solid #dfe5ee; }
+    .topline { display:grid; grid-template-columns:minmax(0,1fr) auto auto; align-items:center; }
+    .topline > div:first-child { display:flex; flex-wrap:wrap; gap:7px; align-items:center; }
+    .topline > div:nth-child(2) { font-size:18px; white-space:nowrap; }
+    .pill { background:#e5edf8; color:#263b5b; }
+    #notice { padding:10px 12px; border-left:4px solid #3157a4; border-radius:7px; background:#fff; }
+    .player { border-radius:14px; }
+    .player.active { border-color:#e2ad35; box-shadow:0 0 0 3px #e2ad3533; }
+    .player h2 { padding-bottom:9px; border-bottom:1px solid #e4e9f0; }
+    .section-title { color:#334a69; }
+    .wall { background:#fff4df; border-color:#e8d2a9; }
+    .characters { align-items:stretch; }
+    .character { flex:1 1 180px; width:auto; box-shadow:0 1px 4px #17223a0d; }
+    .character strong { color:#223954; font-size:16px; }
+    .hand { align-items:stretch; }
+    .card { display:flex; flex-direction:column; box-shadow:0 2px 8px #17223a10; }
+    .card h3 { color:#223954; }
+    .card p { flex:1; }
+    .card button { width:100%; margin-top:10px; }
+    .card-type { display:inline-block; margin-bottom:5px; padding:2px 8px; border-radius:20px; background:#e8eef7; color:#334a69; font-size:12px; font-weight:700; }
+    .card-spell { border-top:4px solid #8c6bc1; }
+    .card-character { border-top:4px solid #3157a4; }
+    .card-field { border-top:4px solid #1b8a77; }
+    .card-hint { padding:6px; border-radius:6px; background:#edf4ff; }
+    .log { padding:10px 10px 10px 30px; border-radius:8px; background:#f7f9fc; }
+    .log li { padding:3px 0; }
+    .hidden { display:none !important; }
+    #veil { position:fixed; inset:0; z-index:10; display:grid; place-items:center; padding:18px; background:#142039f5; }
+    .modal { width:min(520px,100%); max-height:90vh; overflow:auto; padding:22px; border-radius:14px; background:white; box-shadow:0 16px 55px #0004; }
+    .modal h2 { margin:0 0 8px; }
+    .modal p { color:#4f596b; }
+    .choices { display:grid; gap:8px; margin-top:14px; }
+    .choices button { text-align:left; }
+    @media (max-width:760px) { main{padding:12px}.players{grid-template-columns:1fr}.card{max-width:none}.walls{gap:4px}.wall{font-size:13px}.topline{grid-template-columns:1fr auto}.topline>div:first-child{grid-column:1/-1}.topline>div:nth-child(2){font-size:16px} }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>壁のカードバトル</h1>
+    <p>ローカル対戦・オンライン対戦の試作版</p>
+  </header>
+  <main>
+    <section id="setup" class="panel intro">
+      <h2>対戦の準備</h2>
+      <p>選んだスタートデッキで対戦します。先手・後手はランダムです。</p>
+      <ul>
+        <li>通常デッキ30枚、装備デッキ10枚</li>
+        <li>開始時は手札4枚、コア3、壁3つ（各1000）</li>
+        <li>先手の最初のターンはドローなし。キャラAだけ攻撃できます</li>
+        <li>ローカル対戦は同じ画面を交代で操作。オンライン対戦はルームコードで接続します</li>
+      </ul>
+      <div class="panel" style="margin:14px 0;padding:14px">
+        <label for="deckP1"><b>プレイヤー1／部屋を作る側のデッキ</b></label>
+        <select id="deckP1" style="display:block;width:100%;margin:6px 0 12px;padding:9px;border:1px solid #cbd2df;border-radius:8px;font:inherit"></select>
+        <label for="deckP2"><b>プレイヤー2／部屋に参加する側のデッキ</b></label>
+        <select id="deckP2" style="display:block;width:100%;margin:6px 0;padding:9px;border:1px solid #cbd2df;border-radius:8px;font:inherit"></select>
+      </div>
+      <div class="controls">
+        <button id="startLocal">この画面で対戦</button>
+        <button id="hostOnline">オンラインの部屋を作る</button>
+      </div>
+      <div class="panel" style="margin-top:14px;padding:14px">
+        <label for="roomCode"><b>ルームコードで参加</b></label>
+        <div class="controls"><input id="roomCode" autocomplete="off" placeholder="相手のコード" style="flex:1;min-width:180px;padding:10px;border:1px solid #cbd2df;border-radius:8px;font:inherit"><button id="joinOnline" class="secondary">参加する</button></div>
+      </div>
+      <p id="lobbyStatus" aria-live="polite">オンライン対戦では、両方の人が同じゲームファイルを開いてください。部屋を作った人が表示されたコードを相手に伝えます。</p>
+      <p id="roomCodeDisplay" class="pill hidden"></p>
+      <button id="copyLobbyCode" class="secondary hidden">ルームコードをコピー</button>
+      <p class="rules">オンライン機能は友達との試遊向けです。画面では相手の手札を隠しますが、不正操作を防ぐ仕組みはまだありません。</p>
+    </section>
+
+    <section id="game" class="hidden">
+      <div class="topline panel">
+        <div><span id="round" class="pill"></span> <span id="turn" class="pill"></span> <span id="connectionBadge" class="pill hidden"></span> <button id="copyRoom" class="secondary hidden">ルームコードをコピー</button></div>
+        <div><b id="activeName"></b> のターン</div>
+        <button id="endTurn" class="secondary">ターン終了</button>
+      </div>
+      <div id="notice" aria-live="polite"></div>
+      <div id="players" class="players"></div>
+      <section class="panel" style="margin-top:14px">
+        <h2 id="handTitle" style="margin-top:0">手札</h2>
+        <div id="hand" class="hand"></div>
+        <div class="controls">
+          <button id="drawGear" class="secondary">装備を引く（コア1）</button>
+        </div>
+      </section>
+      <section class="panel" style="margin-top:14px">
+        <h2 style="margin-top:0">対戦ログ</h2>
+        <ol id="log" class="log"></ol>
+      </section>
+      <p class="rules">試作ルール：壁が破壊されると、その壁の持ち主はカードを1枚引き、コアを2増やします。コア上限は通常20、キャラGが場にいる間は1体につき＋5です。防御したキャラクターは、生き残っても疲れます。キャラFは相手のターン開始時に疲れが回復します。カード効果や数値は対戦しながら調整できます。</p>
+    </section>
+  </main>
+
+  <div id="veil" class="hidden" role="dialog" aria-modal="true">
+    <div class="modal">
+      <h2 id="modalTitle"></h2>
+      <p id="modalText"></p>
+      <div id="modalChoices" class="choices"></div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
+  <script>
+    const CORE_MAX = 20;
+    const effectsActive = () => !state?.effectsDisabledThisTurn;
+    const characterEffectActive = c => effectsActive() && c?.gearId!=="KG5";
+    function coreLimit(player) {
+      const bonus=effectsActive()?player.characters.filter(c=>c.cardId==="KG"&&c.gearId!=="KG5").length*5:0;
+      return CORE_MAX+bonus;
+    }
+    function gainCore(player,amount) {
+      const before=player.core, available=Math.max(0,coreLimit(player)-player.core);
+      player.core+=Math.min(Math.max(0,amount),available);
+      return player.core-before;
+    }
+    function enforceCoreLimit(player) {
+      player.core=Math.min(player.core,coreLimit(player));
+    }
+    const CARD_LIST = [
+      { id:"A", name:"キャラA", type:"character", cost:2, power:150, effect:"出したターンに攻撃できる" },
+      { id:"B", name:"キャラB", type:"character", cost:1, power:100, effect:"このキャラクターの攻撃は防御できない" },
+      { id:"C", name:"キャラC", type:"character", cost:5, power:600, effect:"効果なし" },
+      { id:"D", name:"キャラD", type:"character", cost:3, power:300, effect:"防御時のみパワー＋300" },
+      { id:"E", name:"キャラE", type:"character", cost:7, power:900, effect:"攻撃時、相手キャラクターを対象にできる" },
+      { id:"F", name:"キャラF", type:"character", cost:3, power:200, effect:"相手ターン開始時に疲れを回復" },
+      { id:"M1", name:"魔法1", type:"spell", cost:1, effect:"相手の壁に100ダメージ、または自分の壁を200回復" },
+      { id:"M2", name:"魔法2", type:"spell", cost:2, effect:"自分のコアを4増やす（上限20）" },
+      { id:"F1", name:"フィールド1", type:"field", cost:0, onDiscardDraw:true, effect:"毎ターンの自分のドロー＋1（装備のドローには適用しない）。このカードが捨てられたら山札から1枚引く" },
+      { id:"F2", name:"フィールド2", type:"field", cost:0, onDiscardDraw:true, effect:"毎ターンの自分のコア増加量＋1。このカードが捨てられたら山札から1枚引く" },
+      { id:"MA", name:"キャラA", type:"character", cost:4, power:400, effect:"魔法を使うたび、このターン中パワー＋100（重複する）" },
+      { id:"MB", name:"キャラB", type:"character", cost:1, power:100, attacks:3, effect:"このキャラクターは3回攻撃できる" },
+      { id:"MC", name:"キャラC", type:"character", cost:4, power:100, cannotAttack:true, effect:"このターンに魔法を使っていれば、次の相手ターンに防御で負けても破壊されず場に残る。このキャラクターは攻撃できない" },
+      { id:"MD", name:"キャラD", type:"character", cost:3, power:200, effect:"出したとき、必要コア2以下の魔法を1枚、コアを払わずに使える" },
+      { id:"ME", name:"キャラE", type:"character", cost:7, power:100, effect:"自分の墓地にある魔法1枚につき、パワー＋100" },
+      { id:"SM1", name:"魔法1", type:"spell", cost:1, effect:"山札からカードを2枚引く" },
+      { id:"SM3", name:"魔法3", type:"spell", cost:2, effect:"このターン、味方全員のパワー＋100" },
+      { id:"SM4", name:"魔法4", type:"spell", cost:3, effect:"このターン、指定した味方キャラクター1体のパワー＋300" },
+      { id:"SM5", name:"魔法5", type:"spell", cost:5, effect:"相手キャラクター2体を疲れさせる" },
+      { id:"SF1", name:"フィールド1", type:"field", cost:0, onDiscardDraw:true, effect:"自分の魔法の必要コアを1減らし、相手の魔法の必要コアを1増やす。このカードが捨てられたら山札から1枚引く" },
+      { id:"KA", name:"キャラA", type:"character", cost:2, power:100, effect:"毎ターン、コアの増加量＋1" },
+      { id:"KB", name:"キャラB", type:"character", cost:4, power:300, effect:"倒されたとき、自分のコアを6増やす" },
+      { id:"KC", name:"キャラC", type:"character", cost:5, power:400, effect:"相手の壁を攻撃したとき、自分のコアを1増やす" },
+      { id:"KD", name:"キャラD", type:"character", cost:7, power:600, effect:"このキャラクターが相手を倒したとき、倒した相手の必要コア分、自分のコアを増やす" },
+      { id:"KE", name:"キャラE", type:"character", cost:8, power:500, effect:"防御するとき、場にいる味方のキャラクター数分、自分のコアを増やす" },
+      { id:"KF", name:"キャラF", type:"character", cost:12, power:1000, effect:"効果なし" },
+      { id:"KG", name:"キャラG", type:"character", cost:1, power:1000, cannotAttack:true, cannotDefend:true, effect:"攻撃・防御できない。場にいる間コア上限＋5。出たとき、場のキャラクター数分コアを増やす" },
+      { id:"KS1", name:"魔法1", type:"spell", cost:2, effect:"自分のコアを4増やす" },
+      { id:"KS2", name:"魔法2", type:"spell", cost:4, effect:"このターン、味方のキャラクターと魔法の必要コアをそれぞれ1減らす" },
+      { id:"KS3", name:"魔法3", type:"spell", cost:8, effect:"このターン、敵味方のカード効果を停止する。基本パワーと、すでに解決した効果は残る" },
+      { id:"KF1", name:"フィールド", type:"field", cost:0, effect:"毎ターン、自分のコア増加量＋1" }
+    ];
+    const GEAR_LIST = [
+      { id:"G1", name:"装備1", effect:"パワー＋100" },
+      { id:"G2", name:"装備2", effect:"1ターンに2回攻撃できる" },
+      { id:"G3", name:"装備3", effect:"相手キャラクターを倒すと、そのキャラクターの必要コア分、自分のコアを増やす" },
+      { id:"G4", name:"装備4", effect:"パワー＋500。壁攻撃が防御されなければ自分を墓地へ" },
+      { id:"G5", name:"装備5", effect:"相手キャラクターを倒すか壁を破壊すると1枚引く" },
+      { id:"SG1", name:"装備1", effect:"魔法を使うたび、このキャラクターの攻撃回数＋1" },
+      { id:"SG2", name:"装備2", effect:"このターンに魔法を使っていれば、攻撃の代わりに相手のフィールドを破壊できる" },
+      { id:"SG3", name:"装備3", effect:"パワー＋100" },
+      { id:"SG4", name:"装備4", effect:"攻撃するたびカードを1枚引く" },
+      { id:"SG5", name:"装備5", effect:"攻撃するたびコアを1増やす" },
+      { id:"KG1", name:"装備1", effect:"パワー＋100" },
+      { id:"KG2", name:"装備2", effect:"攻撃したとき、自分のコアを1増やす" },
+      { id:"KG3", name:"装備3", effect:"自分のコアが10以上なら攻撃回数＋2" },
+      { id:"KG4", name:"装備4", effect:"装備したキャラクターが倒されたとき、相手のキャラクター数分コアを増やす" },
+      { id:"KG5", name:"装備5", effect:"装備したキャラクターの効果をなくす" }
+    ];
+    const DECKS = {
+      beginner:{name:"初心者デッキ",cards:[["A",3],["B",3],["C",3],["D",3],["E",3],["F",3],["M1",3],["M2",3],["F1",3],["F2",3]],gear:[["G1",2],["G2",2],["G3",2],["G4",2],["G5",2]]},
+      magic:{name:"魔法デッキ",cards:[["MA",3],["MB",2],["MC",2],["MD",3],["ME",3],["SM1",3],["M2",3],["SM3",3],["SM4",3],["SM5",3],["SF1",2]],gear:[["SG1",2],["SG2",2],["SG3",2],["SG4",2],["SG5",2]]},
+      core:{name:"コアデッキ",cards:[["KA",3],["KB",3],["KC",3],["KD",2],["KE",2],["KF",3],["KG",2],["KS1",3],["KS2",3],["KS3",3],["KF1",3]],gear:[["KG1",2],["KG2",2],["KG3",2],["KG4",2],["KG5",2]]}
+    };
+    const cardById = id => CARD_LIST.find(c => c.id === id);
+    const gearById = id => GEAR_LIST.find(c => c.id === id);
+    let state = null;
+    const network = { role:"offline", seat:null, peer:null, conn:null, roomCode:"", deckId:"beginner", applyingRemote:false, shownDefenseId:null, shownGameOver:false };
+
+    function localControlsTurn() {
+      return network.role==="offline" || network.seat===state.current;
+    }
+
+    const shuffle = list => {
+      for (let i = list.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [list[i], list[j]] = [list[j], list[i]];
+      }
+      return list;
+    };
+    const makeDeck = (deckId,part) => shuffle(DECKS[deckId][part].flatMap(([id,count])=>Array(count).fill(id)));
+    const newPlayer = (name,deckId="beginner") => ({
+      name, deckId, deckName:DECKS[deckId].name, core:3, walls:Array(3).fill(1000), deck:makeDeck(deckId,"cards"), gearDeck:makeDeck(deckId,"gear"),
+      hand:[], gearHand:null, field:null, characters:[], grave:[], turnCount:0, magicUsedThisTurn:false, magicUsedLastTurn:false, magicUsesThisTurn:0, costReductionThisTurn:0
+    });
+    function populateDeckMenus() {
+      ["#deckP1","#deckP2"].forEach(selector=>{
+        const menu=document.querySelector(selector);
+        menu.innerHTML=Object.entries(DECKS).map(([id,deck])=>`<option value="${id}">${deck.name}</option>`).join("");
+      });
+    }
+
+    function lobbyMessage(text) { document.querySelector("#lobbyStatus").textContent=text; }
+    function createOnlineRoom() {
+      if(!window.Peer) { lobbyMessage("通信ライブラリを読み込めませんでした。インターネット接続を確認してください。"); return; }
+      network.role="host"; network.seat=0;
+      network.deckId=document.querySelector("#deckP1").value;
+      document.querySelector("#hostOnline").disabled=true;
+      document.querySelector("#joinOnline").disabled=true;
+      lobbyMessage("部屋を準備しています…");
+      network.peer=new Peer();
+      network.peer.on("open",id=>{
+        network.roomCode=id;
+        document.querySelector("#roomCodeDisplay").textContent=`ルームコード：${id}`;
+        document.querySelector("#roomCodeDisplay").classList.remove("hidden");
+        document.querySelector("#copyLobbyCode").classList.remove("hidden");
+        lobbyMessage("相手にルームコードを伝えてください。相手が参加すると対戦が始まります。");
+      });
+      network.peer.on("connection",conn=>{
+        if(network.conn) { conn.close(); return; }
+        network.conn=conn; attachPeerConnection(conn);
+      });
+      network.peer.on("error",err=>reportConnection(`接続エラー：${err.message||err.type||"通信に失敗しました"}`));
+    }
+    function joinOnlineRoom() {
+      if(!window.Peer) { lobbyMessage("通信ライブラリを読み込めませんでした。インターネット接続を確認してください。"); return; }
+      const code=document.querySelector("#roomCode").value.trim();
+      if(!code) { lobbyMessage("相手から受け取ったルームコードを入力してください。"); return; }
+      network.role="guest"; network.seat=1; network.roomCode=code;
+      network.deckId=document.querySelector("#deckP2").value;
+      document.querySelector("#joinOnline").disabled=true;
+      document.querySelector("#hostOnline").disabled=true;
+      lobbyMessage("部屋に接続しています…");
+      network.peer=new Peer();
+      network.peer.on("open",()=>{
+        network.conn=network.peer.connect(code,{reliable:true});
+        attachPeerConnection(network.conn);
+        network.conn.on("open",()=>{
+          network.conn.send({type:"JOIN",deckId:network.deckId});
+          lobbyMessage("接続しました。ホストの開始を待っています…");
+        });
+      });
+      network.peer.on("error",err=>reportConnection(`接続エラー：${err.message||err.type||"通信に失敗しました"}`));
+    }
+    function attachPeerConnection(conn) {
+      conn.on("open",()=>{ lobbyMessage("相手と接続しました。対戦を開始します…"); });
+      conn.on("data",message=>{
+        if(message?.type==="JOIN"&&network.role==="host") { if(!state) startGame(network.deckId,message.deckId||"beginner"); else broadcastState(); }
+        if(message?.type==="STATE") applyNetworkState(message.state);
+      });
+      conn.on("close",()=>{ reportConnection("相手との接続が切れました。ページを再読み込みして再接続してください。"); });
+      conn.on("error",err=>reportConnection(`通信エラー：${err.message||"相手と接続できません"}`));
+    }
+    function reportConnection(text) { if(state) say(text); else lobbyMessage(text); }
+    function broadcastState() {
+      if(network.role!=="offline"&&!network.applyingRemote&&network.conn?.open&&state) {
+        network.conn.send({type:"STATE",state:JSON.parse(JSON.stringify(state))});
+      }
+    }
+    function applyNetworkState(nextState) {
+      if(!nextState) return;
+      network.applyingRemote=true;
+      state=nextState;
+      document.querySelector("#setup").classList.add("hidden");
+      document.querySelector("#game").classList.remove("hidden");
+      render();
+      network.applyingRemote=false;
+      maybeShowNetworkDecision();
+    }
+    function maybeShowNetworkDecision() {
+      if(!state||network.role==="offline") return;
+      const pending=state.pendingDefense;
+      if(pending&&network.seat===1-pending.attackerPlayer&&network.shownDefenseId!==pending.id) {
+        network.shownDefenseId=pending.id;
+        const defender=state.players[network.seat];
+        const blockers=defender.characters.filter(c=>!c.exhausted&&!c.defended&&canBlockCharacter(c));
+        const attacker=state.players[pending.attackerPlayer].characters.find(c=>c.uid===pending.attackerUid);
+        if(!attacker) return;
+        openModal("壁への攻撃を防御しますか？",`攻撃側：${characterSummary(attacker)}。防御するキャラクターを選んでください。`,[
+          ...blockers.map(c=>({label:`${characterSummary(c,true)} で防御`,run:()=>resolveBlock(pending.attackerUid,c.uid,pending.wallIndex)})),
+          {label:"防御しない",run:()=>resolveWallHit(pending.attackerUid,pending.wallIndex)}
+        ],"相手の攻撃です。");
+      }
+      if(state.over&&state.resultMessage&&!network.shownGameOver) {
+        network.shownGameOver=true;
+        openModal(state.winner===null?"引き分け":"対戦終了",state.resultMessage,[{label:"ページを再読み込みしてもう一度",run:()=>location.reload()}]);
+      }
+    }
+
+    function startGame(deckOne="beginner",deckTwo="beginner") {
+      const first = Math.random() < 0.5 ? 0 : 1;
+      network.shownDefenseId=null; network.shownGameOver=false;
+      state = {
+      players:[newPlayer("プレイヤー1",deckOne),newPlayer("プレイヤー2",deckTwo)], first, current:first,
+        completedRounds:0, extraRounds:0, sudden:false, turnsInRound:0, noAttackTurn:false, effectsDisabledThisTurn:false,
+        log:[], over:false, initial:true, serial:1, pendingDefense:null, resultMessage:"", winner:null, notice:""
+      };
+      state.players.forEach(p => { for(let i=0;i<4;i++) drawCard(p,1); });
+      document.querySelector("#setup").classList.add("hidden");
+      document.querySelector("#game").classList.remove("hidden");
+      addLog(`先手は${state.players[first].name}です。両者に手札を4枚配りました。`);
+      beginTurn(true);
+    }
+
+    function drawCard(player, amount=1) {
+      let drawn=0;
+      for(let i=0;i<amount;i++) if(player.deck.length) { player.hand.push(player.deck.pop()); drawn++; }
+      return drawn;
+    }
+    function addLog(text) {
+      state.log.unshift(text);
+      state.log=state.log.slice(0,30);
+      render();
+    }
+    function say(text) { if(state) state.notice=text; document.querySelector("#notice").textContent=text; }
+    function beginTurn(initial=false) {
+      const p=state.players[state.current];
+      state.effectsDisabledThisTurn=false;
+      p.turnCount++;
+      p.magicUsedLastTurn=false; p.magicUsedThisTurn=false; p.magicUsesThisTurn=0; p.costReductionThisTurn=0;
+      p.characters.forEach(c => { c.exhausted=false; c.attacksUsed=0; c.defended=false; c.extraAttacks=0; c.tempPower=0; });
+      const firstOpening=initial && state.current===state.first;
+      state.noAttackTurn=firstOpening;
+      const drawAmount=(firstOpening?0:1)+(effectsActive()&&p.field==="F1"?1:0);
+      const got=drawCard(p,drawAmount);
+      const coreBoost=effectsActive()?((p.field==="F2"||p.field==="KF1"?1:0)+p.characters.filter(c=>c.cardId==="KA"&&characterEffectActive(c)).length):0;
+      const gain=2+coreBoost;
+      const before=p.core; gainCore(p,gain);
+      if(!initial) {
+        const defender=state.players[1-state.current];
+        defender.characters.filter(c=>c.cardId==="F"&&characterEffectActive(c)).forEach(c=>c.exhausted=false);
+      }
+      let msg=`${p.name}のターン開始。カード${got}枚、コア${p.core-before}増加。`;
+      if(firstOpening) msg=`${p.name}の最初のターン。ドローなし。キャラAは攻撃できます。コアが${p.core-before}増加。`;
+      say(msg); addLog(msg); render();
+      state.initial=false;
+    }
+
+    function render() {
+      if(!state) return;
+      const p=state.players[state.current];
+      const ownsTurn=localControlsTurn()&&!state.pendingDefense;
+      const canViewHand=network.role==="offline"||network.seat===state.current;
+      document.querySelector("#notice").textContent=state.notice||"";
+      document.querySelector("#round").textContent=state.sudden?"延長戦・サドンデス":`巡 ${Math.min(state.completedRounds+1,13)}`;
+      document.querySelector("#turn").textContent=`ターン ${p.turnCount}`;
+      document.querySelector("#activeName").textContent=p.name;
+      document.querySelector("#connectionBadge").textContent=network.role==="host"?`オンライン・部屋 ${network.roomCode}`:network.role==="guest"?"オンライン対戦":"";
+      document.querySelector("#connectionBadge").classList.toggle("hidden",network.role==="offline");
+      document.querySelector("#copyRoom").classList.toggle("hidden",network.role!=="host"||!network.roomCode);
+      document.querySelector("#handTitle").textContent=canViewHand?`${p.name}の手札（${p.hand.length}枚）`:`${p.name}のターン（相手の手札は非表示）`;
+      document.querySelector("#players").innerHTML=state.players.map((pl,i)=>playerHtml(pl,i)).join("");
+      document.querySelector("#hand").innerHTML=!canViewHand?`<p>相手の操作を待っています。</p>`:p.hand.length?p.hand.map((id,index)=>cardHtml(id,index)).join(""):`<p>手札はありません。</p>`;
+      document.querySelector("#drawGear").disabled=state.over||!ownsTurn||p.core<1||p.gearDeck.length===0;
+      document.querySelector("#drawGear").textContent=`装備を引く（コア1・残り${p.gearDeck.length}枚）`;
+      document.querySelector("#endTurn").disabled=state.over||!ownsTurn;
+      document.querySelector("#log").innerHTML=state.log.map(x=>`<li>${escapeHtml(x)}</li>`).join("");
+      if(!network.applyingRemote) broadcastState();
+      maybeShowNetworkDecision();
+    }
+    function playerHtml(p,index) {
+      const isTurn=index===state.current;
+      const canControl=isTurn&&(network.role==="offline"||network.seat===index)&&!state.pendingDefense;
+      const walls=p.walls.map((hp,i)=>hp>0?`<div class="wall"><span>壁${i+1}<b>${hp}</b></span></div>`:`<div class="wall broken">壁${i+1}<b>破壊</b></div>`).join("");
+      const field=p.field?`<strong>${cardById(p.field).name}</strong><small>効果：${cardById(p.field).effect}</small>`:`なし`;
+      const chars=p.characters.length?p.characters.map(c=>{
+        const card=cardById(c.cardId); const gear=c.gearId?gearById(c.gearId):null;
+        const can=canControl&&!state.over&&canAttack(c,p);
+        const status=c.exhausted?(can?"疲れ・追加攻撃可能":"疲れ"):"攻撃可能";
+        return `<div class="character ${c.exhausted?"tired":""}"><strong>${card.name}　${effectivePower(c)}パワー</strong><small>必要コア${card.cost}・${status}${card.id==="D"?"（防御時＋300）":""}</small><small>効果：${card.effect}</small><small>装備：${gear?gear.name:"なし"}${gear?`（${gear.effect}）`:""}</small>${can?`<div class="actions"><button onclick="chooseAttack(${c.uid})">攻撃する</button></div>`:""}</div>`;
+      }).join(""):`<small>キャラクターはいません</small>`;
+      return `<section class="panel player ${isTurn?"active":""}"><h2>${p.name} — ${p.deckName}${isTurn?"（手番）":""}</h2><div class="stats"><span class="pill">コア ${p.core}/${coreLimit(p)}</span><span class="pill">壁 ${p.walls.filter(x=>x>0).length}/3</span><span class="pill">山札 ${p.deck.length}</span><span class="pill">装備山札 ${p.gearDeck.length}</span><span class="pill">墓地 ${p.grave.length}</span></div><div class="section-title">壁</div><div class="walls">${walls}</div><div class="section-title">フィールド</div><div class="fieldbox">${field}</div><div class="section-title">場のキャラクター</div><div class="characters">${chars}</div></section>`;
+    }
+    function cardHtml(id,index) {
+      const c=cardById(id), player=state.players[state.current];
+      const cost=effectiveCost(c,state.current);
+      let detail=c.type==="character"?`必要コア ${cost} ・ パワー ${c.power}`:c.type==="field"?"必要コア 0":(cost===c.cost?`必要コア ${cost}`:`通常 ${c.cost} → 現在 ${cost}コア`);
+      const freeByD=player.deckId==="magic"&&c.type==="spell"&&c.cost<=2;
+      const hint=freeByD?`<small class="card-hint">キャラDを出した直後の選択画面から無料で使えます。</small>`:"";
+      let can=player.core>=cost&&localControlsTurn()&&!state.pendingDefense&&!(id==="SM5"&&state.players[1-state.current].characters.length<2);
+      const buttonText=can?(c.type==="character"?"場に出す":c.type==="field"?"場に出す":"使う"):(player.core<cost?`コア不足（必要${cost}）`:"使用できません");
+      const typeName=c.type==="character"?"キャラクター":c.type==="spell"?"魔法":"フィールド";
+      return `<article class="card card-${c.type}"><span class="card-type">${typeName}</span><h3>${c.name}</h3><small>${detail}</small><p>${c.effect}</p>${hint}<button ${can?"":"disabled"} onclick="playCard(${index})">${buttonText}</button></article>`;
+    }
+    function effectiveCost(card,playerIndex) {
+      const own=state.players[playerIndex], opponent=state.players[1-playerIndex];
+      let cost=card.cost;
+      if(card.type==="spell"&&effectsActive()) {
+        if(own.field==="SF1") cost--;
+        if(opponent.field==="SF1") cost++;
+      }
+      if((card.type==="spell"||card.type==="character")&&playerIndex===state.current) cost-=(own.costReductionThisTurn||0);
+      return Math.max(0,cost);
+    }
+    function escapeHtml(text) { return text.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c])); }
+
+    function canAttack(c,p) {
+      const card=cardById(c.cardId);
+      if(state.pendingDefense||!localControlsTurn()) return false;
+      const haste=card.id==="A"&&characterEffectActive(c);
+      if((state.noAttackTurn||c.playedTurn===p.turnCount)&&!haste) return false;
+      if(card.cannotAttack&&characterEffectActive(c)) return false;
+      return c.attacksUsed<maxAttacks(c) && (!c.exhausted || c.attacksUsed>0);
+    }
+    function maxAttacks(c) {
+      const card=cardById(c.cardId);
+      const owner=state.players.find(p=>p.characters.some(item=>item.uid===c.uid));
+      const characterExtra=characterEffectActive(c)?((card.attacks||1)-1):0;
+      const gearExtra=effectsActive()?(c.gearId==="G2"||c.gearId==="SG2"?1:0)+(c.gearId==="KG3"&&owner&&owner.core>=10?2:0):0;
+      return 1+characterExtra+gearExtra+(c.extraAttacks||0);
+    }
+    function canBlockCharacter(c) {
+      return !(cardById(c.cardId).cannotDefend&&characterEffectActive(c));
+    }
+    function playCard(index,free=false) {
+      const p=state.players[state.current], id=p.hand[index], card=cardById(id);
+      if(!card||!localControlsTurn()||state.pendingDefense) return;
+      if(free&&!(card.type==="spell"&&card.cost<=2)) return;
+      if(id==="SM5"&&state.players[1-state.current].characters.length<2) return;
+      const cost=free?0:effectiveCost(card,state.current);
+      if(p.core<cost) return;
+      p.core-=cost; p.hand.splice(index,1);
+      if(card.type==="character") {
+        p.characters.push({uid:state.serial++,cardId:id,gearId:null,playedTurn:p.turnCount,magicBonusTurn:id==="MA"?p.turnCount:null,magicBonusCount:id==="MA"&&effectsActive()?(p.magicUsesThisTurn||0):0,exhausted:false,attacksUsed:0,defended:false,extraAttacks:0,tempPower:0});
+        say(`${card.name}を場に出しました。`); addLog(`${p.name}は${card.name}を場に出した。`);
+        if(id==="MD"&&effectsActive()) chooseFreeMagic();
+        if(id==="KG"&&effectsActive()) {
+          const count=state.players.reduce((sum,player)=>sum+player.characters.length,0), gained=gainCore(p,count);
+          say(`キャラGの効果で、場のキャラクター${count}体分のコアを得ました。`);
+          addLog(`キャラGの効果でコアが${gained}増えた（場のキャラクター${count}体）。`);
+        }
+      } else if(card.type==="field") {
+        if(p.field) discardField(state.current);
+        p.field=id;
+        say(`${card.name}を場に出しました。`); addLog(`${p.name}は${card.name}を場に出した。`);
+      } else {
+        const effectCanResolve=effectsActive();
+        onMagicUsed(state.current);
+        if(!effectCanResolve) {
+          p.grave.push(id); say(`${card.name}は使いましたが、効果は魔法3で停止中です。`);
+          addLog(`${p.name}は${card.name}を使ったが、効果は魔法3で停止中のため解決しなかった。`);
+        } else if(id==="M1") {
+          render(); chooseMagicWall();
+        } else if(id==="M2"||id==="KS1") {
+          const gained=gainCore(p,4); p.grave.push(id);
+          say(`${card.name}でコアが${gained}増えました。`); addLog(`${p.name}は${card.name}を使い、コアを${gained}増やした。`);
+        } else if(id==="KS2") {
+          p.costReductionThisTurn=(p.costReductionThisTurn||0)+1; p.grave.push(id);
+          say("このターン、味方のキャラクターと魔法の必要コアが1減りました。"); addLog(`${p.name}は魔法2を使い、このターンのキャラクターと魔法の必要コアを1減らした。`);
+        } else if(id==="KS3") {
+          state.effectsDisabledThisTurn=true; p.grave.push(id);
+          say("このターンのカード効果を停止しました。基本パワーと解決済みの効果は残ります。"); addLog(`${p.name}は魔法3を使い、このターン終了まで敵味方のカード効果を停止した。`);
+        } else if(id==="SM1") {
+          const drawn=drawCard(p,2); p.grave.push(id);
+          say(`魔法1でカードを${drawn}枚引きました。`); addLog(`${p.name}は魔法1を使い、カードを${drawn}枚引いた。`);
+        } else if(id==="SM3") {
+          p.characters.forEach(c=>c.tempPower=(c.tempPower||0)+100); p.grave.push(id);
+          say("味方全員のパワーがこのターン＋100されました。"); addLog(`${p.name}は魔法3を使い、味方全員のパワーをこのターン＋100した。`);
+        } else if(id==="SM4") {
+          chooseFriendlyCharacter(c=>{c.tempPower=(c.tempPower||0)+300;p.grave.push(id);say(`${cardById(c.cardId).name}のパワーをこのターン＋300しました。`);addLog(`${p.name}は魔法4を使い、${cardById(c.cardId).name}のパワーをこのターン＋300した。`);render();});
+        } else if(id==="SM5") {
+          chooseTwoOpponentsToExhaust(id);
+        }
+      }
+      render();
+    }
+    function onMagicUsed(playerIndex) {
+      const p=state.players[playerIndex];
+      p.magicUsedThisTurn=true;
+      if(effectsActive()) p.magicUsesThisTurn=(p.magicUsesThisTurn||0)+1;
+      if(effectsActive()) p.characters.filter(c=>c.cardId==="MA"&&characterEffectActive(c)).forEach(c=>{ c.magicBonusTurn=p.turnCount; c.magicBonusCount=p.magicUsesThisTurn; });
+      const equipped=effectsActive()?p.characters.filter(c=>c.gearId==="SG1"):[];
+      equipped.forEach(c=>c.extraAttacks=(c.extraAttacks||0)+1);
+      if(equipped.length) addLog(`装備1の効果で、装備中のキャラクターの攻撃回数がそれぞれ＋1された。`);
+    }
+    function discardField(playerIndex) {
+      const p=state.players[playerIndex], id=p.field;
+      if(!id) return null;
+      p.field=null; p.grave.push(id);
+      const drawn=effectsActive()&&cardById(id).onDiscardDraw?drawCard(p,1):0;
+      addLog(`${p.name}は${cardById(id).name}を捨てた。${cardById(id).onDiscardDraw?(drawn?"効果で1枚引いた。":"効果で引けるカードはなかった。"):""}`);
+      return id;
+    }
+    function chooseFreeMagic() {
+      const p=state.players[state.current];
+      const options=p.hand.map((id,index)=>({id,index,card:cardById(id)})).filter(x=>x.card.type==="spell"&&x.card.cost<=2);
+      if(!options.length) { say("キャラDの効果で使える魔法が手札にありません。"); return; }
+      openModal("キャラDの効果","必要コア2以下の魔法を1枚選び、コアを払わずに使います。",options.map(x=>({label:`${x.card.name}（通常必要コア${x.card.cost}）`,run:()=>playCard(x.index,true)})));
+    }
+    function chooseFriendlyCharacter(onChoose) {
+      const p=state.players[state.current];
+      const options=p.characters.map(c=>({label:characterSummary(c),run:()=>onChoose(c)}));
+      if(!options.length) { p.grave.push("SM4"); say("対象にできる味方キャラクターがいません。"); addLog(`${p.name}は魔法4を使ったが、対象がいなかった。`); return; }
+      openModal("味方キャラクターを選ぶ","効果を受けるキャラクターを選択してください。",options);
+    }
+    function chooseTwoOpponentsToExhaust(cardId) {
+      const enemyIndex=1-state.current;
+      function finish(firstUid,secondUid) {
+        const enemy=state.players[enemyIndex];
+        const first=enemy.characters.find(c=>c.uid===firstUid), second=enemy.characters.find(c=>c.uid===secondUid);
+        if(first) first.exhausted=true;
+        if(second) second.exhausted=true;
+        state.players[state.current].grave.push(cardId);
+        say("相手のキャラクター2体を疲れさせました。"); addLog(`${state.players[state.current].name}は魔法5を使い、相手キャラクター2体を疲れさせた。`); render();
+      }
+      function chooseSecond(firstUid) {
+        const options=state.players[enemyIndex].characters.filter(c=>c.uid!==firstUid).map(c=>({label:characterSummary(c,true),run:()=>finish(firstUid,c.uid)}));
+        openModal("魔法5：2体目を選ぶ","疲れさせる2体目の相手キャラクターを選択してください。",options);
+      }
+      const firstOptions=state.players[enemyIndex].characters.map(c=>({label:characterSummary(c,true),run:()=>chooseSecond(c.uid)}));
+      openModal("魔法5：1体目を選ぶ","疲れさせる相手キャラクターを2体選択してください。",firstOptions);
+    }
+    function chooseMagicWall() {
+      const owner=state.current;
+      openModal("魔法1：効果を選ぶ","相手の壁にダメージを与えるか、自分の壁を回復します。",[
+        {label:"相手の壁に100ダメージ",run:()=>chooseMagicTarget(1-owner,"damage")},
+        {label:"自分の壁を200回復",run:()=>chooseMagicTarget(owner,"heal")}
+      ]);
+    }
+    function chooseMagicTarget(playerIndex,effect) {
+      const player=state.players[playerIndex];
+      const choices=player.walls.map((hp,index)=>hp>0?({
+        label:`壁${index+1}（体力${hp}）`,
+        run:()=>{
+          if(effect==="heal") {
+            const before=player.walls[index];
+            player.walls[index]=Math.min(1000,before+200);
+            finishMagic(`自分の壁${index+1}を${player.walls[index]-before}回復`);
+          } else {
+            player.walls[index]-=100;
+            if(player.walls[index]<=0) breakWall(playerIndex,index,1-playerIndex);
+            finishMagic(`相手の壁${index+1}に100ダメージ`);
+          }
+        }
+      }):null).filter(Boolean);
+      openModal("魔法1：対象の壁を選ぶ",effect==="heal"?"200回復する自分の壁を選んでください。":"100ダメージを与える相手の壁を選んでください。",choices);
+    }
+    function finishMagic(text) {
+      state.players[state.current].grave.push("M1");
+      say(`魔法1：${text}。`); addLog(`${state.players[state.current].name}は魔法1を使い、${text}した。`); checkWallLoss(); render();
+    }
+
+    function drawGear() {
+      const p=state.players[state.current];
+      if(p.core<1||!p.gearDeck.length||state.over||!localControlsTurn()||state.pendingDefense) return;
+      p.core--; const id=p.gearDeck.pop();
+      const available=p.characters.filter(c=>!c.gearId);
+      if(!available.length) {
+        p.grave.push(id); say(`${gearById(id).name}を引きましたが、装備できるキャラクターがいないため墓地へ。`); addLog(`${p.name}は${gearById(id).name}を引き、墓地へ置いた。`); render(); return;
+      }
+      openModal(`${gearById(id).name}を引きました`,`${gearById(id).effect}。装備するキャラクターを選ぶか、墓地へ置いてください。`,[
+        ...available.map(c=>({label:`${characterSummary(c)} に装備`,run:()=>{c.gearId=id;if(id==="KG5")enforceCoreLimit(p);say(`${gearById(id).name}を装備しました。`);addLog(`${p.name}は${gearById(id).name}を${cardById(c.cardId).name}につけた。`);render();}})),
+        {label:"墓地へ置く",run:()=>{p.grave.push(id);say(`${gearById(id).name}を墓地へ置きました。`);addLog(`${p.name}は${gearById(id).name}を墓地へ置いた。`);render();}}
+      ]);
+    }
+
+    function chooseAttack(uid) {
+      const p=state.players[state.current], c=p.characters.find(x=>x.uid===uid);
+      if(!c||!canAttack(c,p)) return;
+      const opponent=state.players[1-state.current], targets=[];
+      opponent.walls.forEach((hp,i)=>{ if(hp>0) targets.push({label:`壁${i+1}（体力${hp}）を攻撃`,run:()=>attackWall(uid,i)}); });
+      if(c.cardId==="E"&&characterEffectActive(c)) opponent.characters.forEach(t=>targets.push({label:`${characterSummary(t,true)} を攻撃`,run:()=>attackCharacter(uid,t.uid)}));
+      if(effectsActive()&&c.gearId==="SG2"&&p.magicUsedThisTurn&&opponent.field) targets.push({label:`攻撃の代わりに${cardById(opponent.field).name}を破壊`,run:()=>destroyFieldWithAttack(uid)});
+      openModal(`${cardById(c.cardId).name}の攻撃`,`攻撃対象を選んでください。（${c.attacksUsed+1}回目／このターン最大${maxAttacks(c)}回）`,targets);
+    }
+    function destroyFieldWithAttack(uid) {
+      const ownerIndex=state.current, owner=state.players[ownerIndex], attacker=owner.characters.find(c=>c.uid===uid);
+      if(!attacker||!effectsActive()||attacker.gearId!=="SG2"||!owner.magicUsedThisTurn||!state.players[1-ownerIndex].field||!canAttack(attacker,owner)) return;
+      markAttack(attacker,ownerIndex);
+      discardField(1-ownerIndex);
+      say(`${cardById(attacker.cardId).name}の攻撃の代わりに、相手のフィールドを破壊しました。`);
+      addLog(`${owner.name}は${cardById(attacker.cardId).name}の攻撃を使い、相手のフィールドを破壊した。`); render();
+    }
+    function effectivePower(c,defending=false) {
+      const card=cardById(c.cardId);
+      const ownerIndex=state.players.findIndex(p=>p.characters.some(item=>item.uid===c.uid));
+      const owner=ownerIndex>=0?state.players[ownerIndex]:null;
+      const spellCount=owner?owner.grave.filter(id=>cardById(id)?.type==="spell").length:0;
+      const magicBonus=owner&&state.current===ownerIndex&&c.cardId==="MA"&&c.gearId!=="KG5"&&c.magicBonusTurn===owner.turnCount?(c.magicBonusCount||0)*100:0;
+      const gearBonus=effectsActive()?((c.gearId==="G1"||c.gearId==="SG3"||c.gearId==="KG1"?100:0)+(c.gearId==="G4"?500:0)):0;
+      const defenseBonus=defending&&c.cardId==="D"&&characterEffectActive(c)?300:0;
+      const graveBonus=c.cardId==="ME"&&characterEffectActive(c)?spellCount*100:0;
+      return card.power+gearBonus+defenseBonus+magicBonus+graveBonus+(c.tempPower||0);
+    }
+    function characterSummary(c,defending=false) {
+      const card=cardById(c.cardId), gear=c.gearId?gearById(c.gearId):null;
+      return `${card.name}／パワー${effectivePower(c,defending)}／効果：${card.effect}${gear?`／装備効果：${gear.effect}`:""}`;
+    }
+    function markAttack(c,ownerIndex=state.current) {
+      c.attacksUsed++; c.exhausted=true;
+      const owner=state.players[ownerIndex], effects=[];
+      if(effectsActive()&&c.gearId==="SG4") { const n=drawCard(owner,1); effects.push(n?"カードを1枚引いた":"山札が空でカードを引けなかった"); }
+      if(effectsActive()&&(c.gearId==="SG5"||c.gearId==="KG2")) effects.push(`コアが${gainCore(owner,1)}増えた`);
+      if(effects.length) addLog(`${cardById(c.cardId).name}が攻撃し、${effects.join("。")}。`);
+    }
+    function attackWall(uid,wallIndex) {
+      const attackerPlayer=state.current, defenderPlayer=1-attackerPlayer;
+      const attacker=state.players[attackerPlayer].characters.find(c=>c.uid===uid);
+      if(!attacker) return;
+      markAttack(attacker,attackerPlayer);
+      if(attacker.cardId==="KC"&&characterEffectActive(attacker)) gainCore(state.players[attackerPlayer],1);
+      const canBlock=!(attacker.cardId==="B"&&characterEffectActive(attacker))&&state.players[defenderPlayer].characters.some(c=>!c.exhausted&&!c.defended&&canBlockCharacter(c));
+      if(canBlock) {
+        const blockers=state.players[defenderPlayer].characters.filter(c=>!c.exhausted&&!c.defended&&canBlockCharacter(c));
+        if(network.role!=="offline") {
+          state.pendingDefense={id:state.serial++,attackerUid:uid,wallIndex,attackerPlayer};
+          say(`${state.players[defenderPlayer].name}の防御を待っています。`);
+          render();
+          return;
+        }
+        openModal("壁への攻撃",`攻撃側：${characterSummary(attacker)}。防御するキャラクターを選ぶと、表示されたパワーで戦闘します。`,[
+          ...blockers.map(b=>({label:`${characterSummary(b,true)} で防御`,run:()=>resolveBlock(uid,b.uid,wallIndex)})),
+          {label:"防御しない",run:()=>resolveWallHit(uid,wallIndex)}
+        ],`${state.players[defenderPlayer].name}に操作を渡してください。`);
+      } else resolveWallHit(uid,wallIndex);
+      render();
+    }
+    function resolveBlock(attackerUid,blockerUid,wallIndex) {
+      const ai=state.current, di=1-ai, ap=state.players[ai], dp=state.players[di];
+      const attacker=ap.characters.find(c=>c.uid===attackerUid), blocker=dp.characters.find(c=>c.uid===blockerUid);
+      if(!attacker||!blocker) return;
+      state.pendingDefense=null;
+      network.shownDefenseId=null;
+      blocker.defended=true; blocker.exhausted=true;
+      if(blocker.cardId==="KE"&&characterEffectActive(blocker)) {
+        const gained=gainCore(dp,dp.characters.length);
+        addLog(`キャラEの効果で、味方${dp.characters.length}体分コアが${gained}増えた。`);
+      }
+      const attackPower=effectivePower(attacker), defensePower=effectivePower(blocker,true);
+      if(attackPower>defensePower) {
+        if(blocker.cardId==="MC"&&characterEffectActive(blocker)&&dp.magicUsedLastTurn) {
+          say("魔法Cは直前の自分のターンに魔法を使っていたため、破壊されず壁を守りました。");
+          addLog(`${dp.name}の魔法Cは効果で破壊されず、壁を守った。`);
+        } else {
+          destroyCharacter(di,blockerUid); triggersOnKill(ai,attacker,blocker.cardId);
+          say(`${cardById(blocker.cardId).name}が破壊されました。壁は守られました。`);
+          addLog(`${dp.name}は${cardById(blocker.cardId).name}で防御したが、${cardById(blocker.cardId).name}が破壊された。`);
+        }
+      } else if(attackPower<defensePower) {
+        destroyCharacter(ai,attackerUid);
+        triggersOnKill(di,blocker,attacker.cardId);
+        say(`${cardById(attacker.cardId).name}が破壊されました。壁は守られました。`);
+        addLog(`${dp.name}は防御に成功し、${cardById(attacker.cardId).name}を破壊した。`);
+      } else {
+        destroyCharacter(ai,attackerUid); destroyCharacter(di,blockerUid);
+        triggersOnKill(ai,attacker,blocker.cardId); triggersOnKill(di,blocker,attacker.cardId);
+        say("同じパワーのため、両方のキャラクターが破壊されました。壁は守られました。");
+        addLog(`同じパワーで戦闘し、${cardById(attacker.cardId).name}と${cardById(blocker.cardId).name}は両方破壊された。`);
+      }
+      checkWallLoss(); render();
+    }
+    function resolveWallHit(uid,wallIndex) {
+      const ai=state.current, dp=state.players[1-ai], ap=state.players[ai];
+      const attacker=ap.characters.find(c=>c.uid===uid); if(!attacker||dp.walls[wallIndex]<=0) return;
+      state.pendingDefense=null;
+      network.shownDefenseId=null;
+      const power=effectivePower(attacker); dp.walls[wallIndex]-=power;
+      let broke=false;
+      if(dp.walls[wallIndex]<=0) { breakWall(1-ai,wallIndex,ai); broke=true; }
+      say(`${cardById(attacker.cardId).name}が壁${wallIndex+1}に${power}ダメージ。${broke?"壁を破壊しました。":"壁の残り体力は"+dp.walls[wallIndex]+"。"}`);
+      addLog(`${ap.name}の${cardById(attacker.cardId).name}は壁${wallIndex+1}に${power}ダメージを与えた。${broke?"壁を破壊。":""}`);
+      const current=ap.characters.find(c=>c.uid===uid);
+      if(current&&current.gearId==="G4"&&effectsActive()) { destroyCharacter(ai,uid); addLog(`${cardById(current.cardId).name}は装備4の効果で墓地へ置かれた。`); }
+      if(broke) triggersOnWallBreak(ai,current);
+      checkWallLoss(); render();
+    }
+    function attackCharacter(uid,targetUid) {
+      const ai=state.current, di=1-ai, ap=state.players[ai], dp=state.players[di];
+      const attacker=ap.characters.find(c=>c.uid===uid), target=dp.characters.find(c=>c.uid===targetUid);
+      if(!attacker||!target) return;
+      markAttack(attacker,ai);
+      const a=effectivePower(attacker), d=effectivePower(target,true);
+      if(a>d) { destroyCharacter(di,targetUid); triggersOnKill(ai,attacker,target.cardId); say(`${cardById(target.cardId).name}を破壊しました。`); addLog(`${ap.name}の${cardById(attacker.cardId).name}は${cardById(target.cardId).name}を倒した。`); }
+      else if(a<d) { destroyCharacter(ai,uid); triggersOnKill(di,target,attacker.cardId); say(`${cardById(attacker.cardId).name}が破壊されました。`); addLog(`${ap.name}の${cardById(attacker.cardId).name}は戦闘で破壊された。`); }
+      else { destroyCharacter(ai,uid); destroyCharacter(di,targetUid); triggersOnKill(ai,attacker,target.cardId); triggersOnKill(di,target,attacker.cardId); say("同じパワーのため、両方破壊されました。"); addLog("同じパワーのキャラクター同士が戦闘し、両方破壊された。"); }
+      render();
+    }
+    function triggersOnKill(ownerIndex,attacker,targetCardId) {
+      if(!effectsActive()) return;
+      const p=state.players[ownerIndex];
+      if(attacker.cardId==="KD"&&characterEffectActive(attacker)) {
+        const gained=gainCore(p,cardById(targetCardId).cost);
+        addLog(`キャラDの効果でコアが${gained}増えた。`);
+      }
+      if(attacker.gearId==="G3") {
+        const gained=gainCore(p,cardById(targetCardId).cost);
+        addLog(`装備3でコアが${gained}増えた。`);
+      }
+      if(attacker.gearId==="G5") {
+        const p=state.players[ownerIndex], n=drawCard(p,1);
+        addLog(`装備5の効果で${n?"1枚引いた":"カードを引けなかった"}。`);
+      }
+    }
+    function triggersOnWallBreak(ownerIndex,attacker) {
+      if(!effectsActive()||!attacker||attacker.gearId!=="G5") return;
+      const p=state.players[ownerIndex], n=drawCard(p,1);
+      addLog(`装備5の効果で${n?"1枚引いた":"カードを引けなかった"}。`);
+    }
+    function destroyCharacter(playerIndex,uid) {
+      const p=state.players[playerIndex], i=p.characters.findIndex(c=>c.uid===uid);
+      if(i<0) return null;
+      const [c]=p.characters.splice(i,1); p.grave.push(c.cardId); if(c.gearId)p.grave.push(c.gearId);
+      if(c.cardId==="KG"||c.gearId==="KG5") enforceCoreLimit(p);
+      if(effectsActive()&&c.cardId==="KB"&&characterEffectActive(c)) addLog(`キャラBの効果でコアが${gainCore(p,6)}増えた。`);
+      if(effectsActive()&&c.gearId==="KG4") {
+        const enemyCount=state.players[1-playerIndex].characters.length;
+        addLog(`装備4の効果で、相手キャラクター${enemyCount}体分コアが${gainCore(p,enemyCount)}増えた。`);
+      }
+      return c;
+    }
+    function breakWall(playerIndex,wallIndex,attackerIndex) {
+      const owner=state.players[playerIndex];
+      owner.walls[wallIndex]=0;
+      const drawn=drawCard(owner,1), gained=gainCore(owner,2);
+      addLog(`${owner.name}の壁${wallIndex+1}が破壊された。壁の効果でカードを${drawn?"1枚引き、":"引けず、"}コアが${gained}増えた。`);
+      if(state.sudden&&!state.over) finishGame(attackerIndex,`${state.players[attackerIndex].name}が延長戦で壁を破壊しました。`);
+    }
+    function checkWallLoss() {
+      if(state.over) return;
+      const empty=state.players.findIndex(p=>p.walls.every(w=>w<=0));
+      if(empty>=0) finishGame(1-empty,`${state.players[1-empty].name}の勝ち！ 相手の壁をすべて破壊しました。`);
+    }
+    function finishGame(winner,message) {
+      if(state.over)return;
+      state.resultMessage=message; state.winner=winner;
+      state.over=true; say(message); addLog(message);
+      network.shownGameOver=true;
+      openModal(winner===null?"引き分け":"対戦終了",message,[{label:"もう一度遊ぶ",run:()=>location.reload()}]);
+    }
+
+    function endTurn() {
+      if(state.over||!localControlsTurn()||state.pendingDefense)return;
+      const ending=state.current;
+      const endingPlayer=state.players[ending];
+      endingPlayer.magicUsedLastTurn=endingPlayer.magicUsedThisTurn;
+      endingPlayer.magicUsedThisTurn=false;
+      endingPlayer.characters.forEach(c=>{c.tempPower=0;c.extraAttacks=0;});
+      state.turnsInRound++;
+      if(ending===1-state.first) {
+        state.completedRounds++; state.turnsInRound=0;
+        if(!evaluateRound()) return;
+      }
+      state.current=1-state.current;
+      beginTurn(false);
+    }
+    function evaluateRound() {
+      const [a,b]=state.players, aw=a.walls.filter(x=>x>0).length, bw=b.walls.filter(x=>x>0).length;
+      if(state.sudden) return true;
+      if(state.completedRounds===10) {
+        if(aw!==bw) { finishGame(aw>bw?0:1,`${state.players[aw>bw?0:1].name}の勝ち！ 10巡終了時、壁が多く残っていました。`); return false; }
+        state.extraRounds=0; say("10巡終了時に壁が同数です。追加3巡に入ります。"); addLog("10巡終了時に壁が同数のため、追加3巡を開始。");
+      } else if(state.completedRounds>10) {
+        state.extraRounds++;
+        if(state.extraRounds===3) {
+          if(aw!==bw) { finishGame(aw>bw?0:1,`${state.players[aw>bw?0:1].name}の勝ち！ 追加巡終了時、壁が多く残っていました。`); return false; }
+          state.sudden=true; say("追加3巡後も同数です。以後、壁を先に1つ破壊した側の勝ちです。"); addLog("追加3巡後も同数のため、サドンデスを開始。");
+        }
+      }
+      return true;
+    }
+
+    function openModal(title,text,choices,extra="") {
+      document.querySelector("#modalTitle").textContent=title;
+      document.querySelector("#modalText").textContent=extra?`${extra} ${text}`:text;
+      const box=document.querySelector("#modalChoices"); box.innerHTML="";
+      choices.forEach(ch=>{ const b=document.createElement("button");b.textContent=ch.label;b.onclick=()=>{closeModal();ch.run();};box.appendChild(b); });
+      document.querySelector("#veil").classList.remove("hidden");
+    }
+    function closeModal() { document.querySelector("#veil").classList.add("hidden"); }
+
+    populateDeckMenus();
+    document.querySelector("#startLocal").addEventListener("click",()=>{ if(network.peer) network.peer.destroy(); network.peer=null; network.conn=null; network.role="offline"; network.seat=null; startGame(document.querySelector("#deckP1").value,document.querySelector("#deckP2").value); });
+    document.querySelector("#hostOnline").addEventListener("click",createOnlineRoom);
+    document.querySelector("#joinOnline").addEventListener("click",joinOnlineRoom);
+    document.querySelector("#copyRoom").addEventListener("click",async()=>{
+      if(!network.roomCode) return;
+      try { await navigator.clipboard.writeText(network.roomCode); say("ルームコードをコピーしました。相手に伝えてください。"); }
+      catch { window.prompt("このルームコードを相手に伝えてください：",network.roomCode); }
+    });
+    document.querySelector("#copyLobbyCode").addEventListener("click",async()=>{
+      if(!network.roomCode) return;
+      try { await navigator.clipboard.writeText(network.roomCode); lobbyMessage("ルームコードをコピーしました。相手に伝えてください。"); }
+      catch { window.prompt("このルームコードを相手に伝えてください：",network.roomCode); }
+    });
+    document.querySelector("#endTurn").addEventListener("click",endTurn);
+    document.querySelector("#drawGear").addEventListener("click",drawGear);
+    window.playCard=playCard; window.chooseAttack=chooseAttack;
+    render();
+  </script>
+</body>
+</html>
+
+
+
+
+
+
